@@ -33,7 +33,7 @@ You have full control over tech choices, but backend services and trading execut
    - WebSocket integration.
    - Handles order statuses: submitted, partially filled, filled, cancelled, rejected.
    - Basic error handling and show error msg for users.
-   - set up our Ui screen for getting orders list with paging.
+   - set up our Ui screen for getting orders list with paging library.
    - ui indicators for “connection lost” and auto-reconnect.
      
    full solution :
@@ -50,18 +50,38 @@ You have full control over tech choices, but backend services and trading execut
    - user see order update to Partially Filled.
    - user see order update again to Filled.
    edge cases
-   - lost connection need to fallback polling every X second.
+   - lost connection need to fallback polling every X second or show retry dianlog to pull new order updates.
    - user logs in on two devices both receive updates or logout from first device.
    - rejected or canceled orders user must error messages that order is cancel or rejected.
 
+2.System Design Document
 
+   - Architecture diagram attched please check diagram/.
+     
+     Explanation of real-time mechanism (WebSockets, FCM
+   - WebSockets for live updates while app is foregrounded , FCM for mobile background delivery will explain it in review.
+     
+     Platform-specific data flow (Mobile)
+   - User action is sent to the backend services via REST APIs.
+     Backend services process the request and update the database.
+     Upon a relevant event, the Real-time Notification Service identifies the user's mobile devices.
+     Foreground: If the app has an active WebSocket connection, the update is sent via WebSocket.
+     Background: If the app is in the background, the Real-time Notification Service sends a push notification (via FCM) to the user's device containing a brief summary of the update.
+     When the user opens the app from the push notification (or directly), the app can either:
+     Establish a WebSocket connection to receive further real-time updates.
+     Fetch the latest order and trade information via REST API calls.
 
+     Error handling
+   - WebSocket Disconnections (Implement automatic reconnection with loading dialog).
+   - Backend service failures ( display a clear message indicating that real-time updates are temporarily unavailable and fallback to polling ).
+   - Push notification failures ( user is disable permission of recive notification or close the notifiction channel so we will need to show dialog to tell user that we need to grantue       the notifiction permission with button go to setting ) 
+   - Data inconsistency ( if the response model of notification changed app will crash so we make data validation to make sure it's the needed data).
+   - handle cases by make force call for the get orders status api to update the orders status if there is an unexpected error.
 
-
-
-
-
-
+     Tech stack reasoning 
+   - Platform:Kotlin (Android).
+   - WebSocket Libraries: Libraries available for both platforms (socket.io , OkHttp or Java-WebSocket for Android).
+   - FCM SDKs: Provided by Google for handling push notification registration and delivery.
 
 
 

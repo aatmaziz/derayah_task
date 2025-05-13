@@ -74,7 +74,8 @@ You have full control over tech choices, but backend services and trading execut
      Error handling
    - WebSocket Disconnections (Implement automatic reconnection with loading dialog).
    - Backend service failures ( display a clear message indicating that real-time updates are temporarily unavailable and fallback to polling ).
-   - Push notification failures ( user is disable permission of recive notification or close the notifiction channel so we will need to show dialog to tell user that we need to grantue       the notifiction permission with button go to setting ) 
+   - Push notification failures ( user is disable permission of recive notification or close the notifiction channel so we will need to show dialog to tell user that we need to grantue       the notifiction permission with       
+     button go to setting ) 
    - Data inconsistency ( if the response model of notification changed app will crash so we make data validation to make sure it's the needed data).
    - handle cases by make force call for the get orders status api to update the orders status if there is an unexpected error.
 
@@ -82,6 +83,33 @@ You have full control over tech choices, but backend services and trading execut
    - Platform:Kotlin (Android).
    - WebSocket Libraries: Libraries available for both platforms (socket.io , OkHttp or Java-WebSocket for Android).
    - FCM SDKs: Provided by Google for handling push notification registration and delivery.
+
+3.Mentorship Plan
+     How would you onboard a junior engineer to this feature?
+   - explaining the goal of the feature — real-time order updates — and the importance of ensuring the system scales and remains reliable under high load.
+   - walk them through the core tech stack (socket.io,mvvm pattern,clean arch).
+     
+     What would you delegate to them?
+   - starting with ui implementation and then go for layers like ( domain and data ).
+   - focus with him on pr reviews to gain experiance.
+   - writing data class that mock real time response.
+   - setup every part in his place and start to test the happy path with him.
+   - should the out source code be clean, modular, and testable.
+
+     How would you help them understand the architecture and write tests?
+   - Best practices for asynchronous programming and error handling in real-time systems.
+     
+     What pitfalls would you help them avoid?
+   - Avoiding common pitfalls, such as over engineering the task or over-complicating state management.
+   - Avoiding ignoring connection loss what will do if the connection is down ?
+   - Ensure that the app doesn’t update too many state changes in a short time.
+     
+4. Optional (Bonus)
+   Fallback strategy if real-time connection fails
+   - If WebSockets fail, use HTTP polling as a fallback for order status updates.
+   
+
+
 
 
 

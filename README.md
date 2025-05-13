@@ -16,6 +16,7 @@ You have full control over tech choices, but backend services and trading execut
    - I assume there is a service responsible for geting orders from excution plattform.
    - I assume there is a platform type to know this user from mobile of web.
    - I assume that all integrated plattform will transform to the same internal model of order.
+   - I assumed that the definition of json is ( symble - id - created_at - quantity - price - order_type - plattform ).
    - what is an interval for updates orders ?
    - what is the DB type ? 
    - what is the number of users ?

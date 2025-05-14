@@ -1,0 +1,19 @@
+package com.derayah.domain.usecase
+
+import com.derayah.data.model.Order
+import com.derayah.data.repository.OrderRepository
+import io.reactivex.Observable
+import io.reactivex.Single
+import javax.inject.Inject
+
+class UpdateOrderStatusUseCase @Inject constructor( private val orderRepository: OrderRepository) {
+
+    fun observeOrderUpdates(): Observable<Order> {
+        return orderRepository.getOrderStatusUpdates()
+    }
+
+     fun updateOrderStatus(orderId: String, status: String): Single<Unit> {
+        return orderRepository.updateOrderStatus(orderId, status)
+    }
+
+}

@@ -1,0 +1,75 @@
+package com.derayah.data.repository
+
+import com.derayah.data.model.Order
+import io.reactivex.Observable
+import io.reactivex.Single
+import io.reactivex.schedulers.Schedulers
+import io.socket.client.IO
+import io.socket.client.Socket
+import org.json.JSONObject
+import java.net.URISyntaxException
+
+class OrderRepositoryImpl : OrderRepository {
+    private var socket: Socket? = null
+    private val orderUpdatesSubject = io.reactivex.subjects.PublishSubject.create<Order>()
+
+    init {
+        initializeSocket()
+    }
+
+    private fun initializeSocket() {
+        try {
+            socket = IO.socket("Base_URl")
+            socket?.on(Socket.EVENT_CONNECT) {
+                orderUpdatesSubject.onNext(Order(orderId = "", status = "Connected", timestamp = System.currentTimeMillis()))
+            }?.on("orderUpdate") { args ->
+                val json = args[0] as JSONObject
+                val order = Order(
+                    orderId = json.getString("orderId"),
+                    status = json.getString("status"),
+                    timestamp = json.getLong("timestamp")
+                )
+                orderUpdatesSubject.onNext(order)
+            }?.on(Socket.EVENT_DISCONNECT) {
+                orderUpdatesSubject.onNext(Order(orderId = "", status = "Disconnected", timestamp = System.currentTimeMillis()))
+            }?.on(Socket.EVENT_CONNECT_ERROR) {
+                orderUpdatesSubject.onError(Throwable("Socket connection failed"))
+            }
+            socket?.connect()
+        } catch (e: URISyntaxException) {
+            orderUpdatesSubject.onError(e)
+        }
+    }
+
+    override fun getOrderStatusUpdates(): Observable<Order> {
+        return orderUpdatesSubject
+            .subscribeOn(Schedulers.io())
+            .observeOn(Schedulers.io())
+    }
+
+    override fun getOrderStatus(orderId: String): Single<Order?> {
+        return Single.fromCallable {
+         apiService.getOrder(orderId).toOrder()
+        }.subscribeOn(Schedulers.io())
+    }
+
+    override fun updateOrderStatus(orderId: String, status: String): Single<Unit> {
+        return Single.create { emitter ->
+            try {
+                socket?.emit("updateOrder", JSONObject().apply {
+                    put("orderId", orderId)
+                    put("status", status)
+                })
+                emitter.onSuccess(Unit)
+            } catch (e: Exception) {
+                emitter.onError(e)
+            }
+        }.subscribeOn(Schedulers.io())
+    }
+
+    fun disconnect() {
+        socket?.disconnect()
+        socket?.off()
+        orderUpdatesSubject.onComplete()
+    }
+}

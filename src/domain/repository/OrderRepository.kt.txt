@@ -1,0 +1,14 @@
+package com.derayah.data.repository
+
+import com.derayah.data.model.Order
+import io.reactivex.Observable
+import io.reactivex.Single
+
+interface OrderRepository {
+
+    fun getOrderStatusUpdates(): Observable<Order>
+
+    fun getOrderStatus(orderId: String): Single<Order?>
+
+    fun updateOrderStatus(orderId: String, status: String): Single<Unit>
+}

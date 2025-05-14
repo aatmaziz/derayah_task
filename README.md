@@ -1,118 +1,453 @@
 Overview
-You are tasked with designing and partially implementing a Real-Time Order Status and Trade Notifications feature for a multi-platform trading application (Mobile and Web).
-Business Prompt:
+This document outlines the design and partial implementation of a Real-Time Order Status and Trade Notifications feature for a cross-platform trading application (Mobile and Web). The goal is to enable users to receive instant updates on their open orders and trade executions without manual refreshes, ensuring a seamless and responsive user experience.
+
+Business Prompt
+
 "We want users to instantly see updates on their open orders and executions without refreshing manually."
-This case study assesses your ability to work through vague requirements, architect clean scalable systems, implement critical components, and mentor less experienced engineers.
+This case study evaluates the ability to:
+
+Interpret and clarify vague requirements.
+
+Architect scalable, clean systems.
+
+Implement critical components.
+
+Mentor junior engineers effectively.
 
 🌆 Scenario
-You are the Staff Engineer responsible for delivering this cross-platform capability. Users must receive updates instantly as their orders change state (submitted, filled, partially filled, cancelled, etc.) across stocks, mutual funds, ETFs, crypto, etc.
-You have full control over tech choices, but backend services and trading execution platforms already exist.
-
-1. Problem Analysis.
-   
-   Clarify assumptions and open questions.
-   - I assume there are existing backend services responsible for user login and authintication.
-   - I assume there are a CURD opertation for create , modifiy and cancel order.
-   - I assume there is a service responsible for geting orders from excution plattform.
-   - I assume there is a platform type to know this user from mobile of web.
-   - I assume that all integrated plattform will transform to the same internal model of order.
-   - I assumed that the definition of json is ( symble - id - created_at - quantity - price - order_type - plattform ).
-   - what is an interval for updates orders ?
-   - what is the DB type ? 
-   - what is the number of users ?
-   - what is the number of orders ?
-   - Is there is an agreegation for orders or user see the orders status update at the same time ?
-     
-   Identify what makes the requirement vague
-   - "without refresh" means that it's happened with real time connection but didn't mentioned what lib to use.
-   - what is the acceptable latency for this requirment.
-   - the specific details of the notifications (content) are not fully provided.
-     
-   Define MVP scope vs full solution
-   
-   first mvp :
-   - WebSocket integration.
-   - Handles order statuses: submitted, partially filled, filled, cancelled, rejected.
-   - Basic error handling and show error msg for users.
-   - set up our Ui screen for getting orders list with paging library.
-   - ui indicators for “connection lost” and auto-reconnect.
-     
-   full solution :
-   - latency-optimized.
-   - handle fallback if socket is down.
-   - handle background thread for updating data.
-   - return timestamps allow the client to show precise execution timing (“filled 2 seconds ago”).
-  
-   Include user journeys and edge cases
-   - user login to our mobile app or web.
-   - user open stock details screen.
-   - start creating order.
-   - order is submitted and navigation to orders history screen.
-   - user see order update to Partially Filled.
-   - user see order update again to Filled.
-   edge cases
-   - lost connection need to fallback polling every X second or show retry dianlog to pull new order updates.
-   - user logs in on two devices both receive updates or logout from first device.
-   - rejected or canceled orders user must error messages that order is cancel or rejected.
-
-2.System Design Document
-
-   - Architecture diagram attched please check diagram/.
-     
-     Explanation of real-time mechanism (WebSockets, FCM
-   - WebSockets for live updates while app is foregrounded , FCM for mobile background delivery will explain it in review.
-     
-     Platform-specific data flow (Mobile)
-   - User action is sent to the backend services via REST APIs.
-     Backend services process the request and update the database.
-     Upon a relevant event, the Real-time Notification Service identifies the user's mobile devices.
-     Foreground: If the app has an active WebSocket connection, the update is sent via WebSocket.
-     Background: If the app is in the background, the Real-time Notification Service sends a push notification (via FCM) to the user's device containing a brief summary of the update.
-     When the user opens the app from the push notification (or directly), the app can either:
-     Establish a WebSocket connection to receive further real-time updates.
-     Fetch the latest order and trade information via REST API calls.
-
-     Error handling
-   - WebSocket Disconnections (Implement automatic reconnection with loading dialog).
-   - Backend service failures ( display a clear message indicating that real-time updates are temporarily unavailable and fallback to polling ).
-   - Push notification failures ( user is disable permission of recive notification or close the notifiction channel so we will need to show dialog to tell user that we need to grantue       the notifiction permission with       
-     button go to setting ) 
-   - Data inconsistency ( if the response model of notification changed app will crash so we make data validation to make sure it's the needed data).
-   - handle cases by make force call for the get orders status api to update the orders status if there is an unexpected error.
-
-     Tech stack reasoning 
-   - Platform:Kotlin (Android).
-   - WebSocket Libraries: Libraries available for both platforms (socket.io , OkHttp or Java-WebSocket for Android).
-   - FCM SDKs: Provided by Google for handling push notification registration and delivery.
-
-3.Mentorship Plan
-     How would you onboard a junior engineer to this feature?
-   - explaining the goal of the feature — real-time order updates — and the importance of ensuring the system scales and remains reliable under high load.
-   - walk them through the core tech stack (socket.io,mvvm pattern,clean arch).
-     
-     What would you delegate to them?
-   - starting with ui implementation and then go for layers like ( domain and data ).
-   - focus with him on pr reviews to gain experiance.
-   - writing data class that mock real time response.
-   - setup every part in his place and start to test the happy path with him.
-   - should the out source code be clean, modular, and testable.
-
-     How would you help them understand the architecture and write tests?
-   - Best practices for asynchronous programming and error handling in real-time systems.
-     
-     What pitfalls would you help them avoid?
-   - Avoiding common pitfalls, such as over engineering the task or over-complicating state management.
-   - Avoiding ignoring connection loss what will do if the connection is down ?
-   - Ensure that the app doesn’t update too many state changes in a short time.
-     
-4. Optional (Bonus)
-   Fallback strategy if real-time connection fails
-   - If WebSockets fail, use HTTP polling as a fallback for order status updates.
-   
+As the Staff Engineer, you are responsible for delivering this cross-platform capability. Users must receive real-time updates as their orders transition through states (e.g., Submitted, Partially Filled, Filled, Cancelled, Rejected) across various asset types (stocks, mutual funds, ETFs, crypto). You have full control over technology choices, leveraging existing backend services and trading execution platforms.
 
 
+1. Problem Analysis
+
+Assumptions
+
+To address the requirements, the following assumptions are made:
+
+Existing Backend Services: Services for user authentication and login are already in place.
+
+CRUD Operations: APIs exist for creating, modifying, and cancelling orders.
+
+Order Retrieval: A service fetches order data from execution platforms.
+
+Platform Identification: A field identifies whether the user is on Mobile or Web.
+
+
+Unified Order Model: All integrated platforms transform order data into a consistent internal model.
+
+
+Order JSON Structure:
+
+{
+  "symbol": "string",
+  "id": "string",
+  "created_at": "timestamp",
+  "quantity": "number",
+  "price": "number",
+  "order_type": "string",
+  "platform": "string"
+}
+
+Open Questions
+
+To clarify the requirements, the following need resolution:
+
+Update Interval: What is the expected frequency for order status updates?
+
+Database Type: Is it SQL (e.g., PostgreSQL), NoSQL (e.g., MongoDB), or another type?
+
+User Scale: How many concurrent users are expected?
+
+Order Volume: What is the average and peak number of orders processed?
+
+Aggregation Needs: Are order updates aggregated (e.g., batched) or delivered individually in real-time?
+
+Vague Requirements
+
+The requirements lack specificity in the following areas:
+
+"Without Refresh": Implies a real-time connection (e.g., WebSockets), but the specific library or protocol is not defined.
+
+Latency Expectations: No clear definition of acceptable latency for updates (e.g., <1s, <5s).
+
+Notification Content: The exact content and format of notifications (e.g., text, data fields) are unspecified.
+
+MVP Scope vs. Full Solution
+
+MVP Scope
+
+The Minimum Viable Product (MVP) focuses on core functionality:
+
+WebSocket Integration: Enable real-time updates for order statuses (Submitted, Partially Filled, Filled, Cancelled, Rejected).
+
+Basic Error Handling: Display user-friendly error messages for connection issues or failed updates.
+
+UI Implementation: Build an orders list screen with pagination using a paging library (e.g., Jetpack Paging for Android).
+
+Connection Status Indicators: Show "Connection Lost" warnings and implement auto-reconnect logic.
+
+Full Solution
+
+The complete solution extends the MVP with:
+
+Latency Optimization: Minimize update latency (e.g., sub-second delivery).
+
+Fallback Mechanism: Use HTTP polling if WebSocket connections fail.
+
+Background Updates: Support background threads for data updates, ensuring seamless UX.
+
+Precise Timestamps: Include execution timestamps for user-friendly feedback (e.g., "Filled 2 seconds ago").
+
+User Journeys and Edge Cases
+
+User Journey
+
+User logs into the mobile app or web platform.
+
+User navigates to a stock details screen.
+
+User creates and submits an order.
+
+User is redirected to the orders history screen.
+
+
+
+Order status updates to "Partially Filled" in real-time.
+
+
+
+Order status updates to "Filled" in real-time.
+
+Edge Cases
 
 
 
 
 
+Connection Loss: Fallback to polling every X seconds or display a retry dialog to fetch order updates.
+
+
+
+Multi-Device Login: Handle simultaneous logins on multiple devices, ensuring all receive updates or gracefully handle logout from one device.
+
+
+
+Order Rejections/Cancellations: Display clear error messages for rejected or cancelled orders.
+
+
+
+2. System Design Document _
+
+Architecture Diagram
+
+Refer to the architecture diagram in the diagram/ directory for a visual representation of the system.
+
+Real-Time Mechanism
+
+
+
+
+
+WebSockets: Used for live updates when the app is in the foreground, ensuring low-latency delivery.
+
+
+
+Firebase Cloud Messaging (FCM): Delivers push notifications for mobile apps in the background, summarizing order updates.
+
+Platform-Specific Data Flow (Mobile)
+
+
+
+
+
+User Action: The user submits an order via REST APIs.
+
+
+
+Backend Processing: Backend services validate and process the request, updating the database.
+
+
+
+Event Notification: The Real-Time Notification Service identifies the user's mobile device(s).
+
+
+
+Foreground Delivery:
+
+
+
+
+
+If the app has an active WebSocket connection, updates are sent via WebSocket.
+
+
+
+Background Delivery:
+
+
+
+
+
+If the app is in the background, the Notification Service sends a push notification via FCM with a brief update summary.
+
+
+
+App Reactivation:
+
+
+
+
+
+When the user opens the app (via notification or directly), it either:
+
+
+
+
+
+Establishes a WebSocket connection for real-time updates.
+
+
+
+Fetches the latest order data via REST API calls.
+
+Error Handling
+
+
+
+
+
+WebSocket Disconnections:
+
+
+
+
+
+Implement automatic reconnection with a loading dialog to inform users.
+
+
+
+Backend Service Failures:
+
+
+
+
+
+Display a message indicating temporary unavailability of real-time updates and fallback to polling.
+
+
+
+Push Notification Failures:
+
+
+
+
+
+If notifications are disabled, prompt the user with a dialog to enable permissions, including a button to navigate to settings.
+
+
+
+Data Inconsistency:
+
+
+
+
+
+Validate incoming notification data to prevent crashes due to model changes.
+
+
+
+Unexpected Errors:
+
+
+
+
+
+Force-call the "Get Orders Status" API to refresh order statuses if errors occur.
+
+Tech Stack Reasoning
+
+
+
+
+
+Platform: Kotlin for Android, leveraging its modern features and ecosystem.
+
+
+
+WebSocket Libraries:
+
+
+
+
+
+Options include socket.io for simplicity, OkHttp for robust WebSocket support, or Java-WebSocket for lightweight integration.
+
+
+
+FCM SDK: Google’s official SDK for reliable push notification handling.
+
+
+
+UI Framework: Jetpack Compose for Android to build a reactive, modern UI.
+
+
+
+3. Mentorship Plan
+
+Onboarding a Junior Engineer
+
+To onboard a junior engineer:
+
+
+
+
+
+Explain the Feature Goal: Highlight the importance of real-time order updates for user experience and the need for scalability under high load.
+
+
+
+Walk Through the Tech Stack:
+
+
+
+
+
+Introduce socket.io for WebSocket communication.
+
+
+
+Explain the MVVM pattern and Clean Architecture principles for modular code.
+
+
+
+Demonstrate the Android Paging library for efficient data loading.
+
+Tasks to Delegate
+
+
+
+
+
+UI Implementation: Build the orders list screen using Jetpack Compose and the Paging library.
+
+
+
+Data Layer: Implement data classes to mock real-time WebSocket responses.
+
+
+
+PR Reviews: Involve them in code reviews to gain experience and understand best practices.
+
+
+
+Testing Happy Path: Guide them to set up and test the primary user journey (e.g., order submission to Filled status).
+
+
+
+Code Quality: Ensure their code is clean, modular, and testable.
+
+Teaching Architecture and Testing
+
+
+
+
+
+Architecture:
+
+
+
+
+
+Use diagrams to explain data flow (UI → ViewModel → Repository → WebSocket/REST).
+
+
+
+Discuss Clean Architecture layers (Presentation, Domain, Data) and their responsibilities.
+
+
+
+Testing:
+
+
+
+
+
+Teach unit testing for ViewModels and repositories using JUnit and MockK.
+
+
+
+Introduce UI testing with Espresso or Compose Testing for user journeys.
+
+
+
+Emphasize testing edge cases like connection loss and invalid data.
+
+Pitfalls to Avoid
+
+
+
+
+
+Over-Engineering: Guide them to keep solutions simple and focused on the MVP.
+
+
+
+Connection Loss Handling: Ensure they account for WebSocket disconnections and implement fallback polling.
+
+
+
+State Management: Prevent excessive state updates by batching or debouncing rapid changes.
+
+
+
+Ignoring Scalability: Stress the importance of efficient data handling for large order volumes.
+
+
+
+4. Optional (Bonus): Fallback Strategy
+
+If the WebSocket connection fails:
+
+
+
+
+
+HTTP Polling: Implement polling at a configurable interval (e.g., every 5 seconds) to fetch order status updates.
+
+
+
+User Feedback: Display a subtle "Polling Mode" indicator to inform users of the fallback state.
+
+
+
+Reconnection Logic: Continuously attempt to re-establish the WebSocket connection in the background, reverting to real-time updates once restored.
+
+
+
+Feature Flag for Critical Bugs: Implement a feature flag (e.g., via a remote configuration service like Firebase Remote Config) to hide the order history screen if a severe bug is detected, preventing users from accessing potentially broken functionality. Display a user-friendly message (e.g., "Order history is temporarily unavailable") and redirect users to an alternative screen (e.g., home or portfolio).
+
+Monitoring and Observability Plan
+
+
+
+
+
+Crashlytics Integration: Utilize Firebase Crashlytics for mobile apps to monitor and detect bugs in real-time. Crashlytics will provide detailed crash reports, including:
+
+
+
+
+
+App Version: Identify the specific app version affected by the bug.
+
+
+
+Number of Affected Users: Track the scale of the issue by monitoring the number of users impacted.
+
+
+
+Stack Traces and Context: Capture detailed error logs to diagnose root causes efficiently.
+
+
+
+Actionable Insights: Use Crashlytics data to prioritize bug fixes and inform decisions about enabling/disabling the feature flag for the order history screen.

@@ -1,7 +1,7 @@
 Overview
 This document outlines the design and partial implementation of a Real-Time Order Status and Trade Notifications feature for a cross-platform trading application (Mobile and Web). The goal is to enable users to receive instant updates on their open orders and trade executions without manual refreshes, ensuring a seamless and responsive user experience.
 
-Business Prompt
+Requirment
 
 "We want users to instantly see updates on their open orders and executions without refreshing manually."
 This case study evaluates the ability to:
